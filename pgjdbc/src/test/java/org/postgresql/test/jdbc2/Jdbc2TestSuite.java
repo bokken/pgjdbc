@@ -7,6 +7,7 @@ package org.postgresql.test.jdbc2;
 
 import org.postgresql.core.CommandCompleteParserNegativeTest;
 import org.postgresql.core.CommandCompleteParserTest;
+import org.postgresql.core.IntCollectionTest;
 import org.postgresql.core.OidToStringTest;
 import org.postgresql.core.OidValueOfTest;
 import org.postgresql.core.ParserTest;
@@ -79,6 +80,7 @@ import org.junit.runners.Suite;
         PGTimestampTest.class,
         TimezoneCachingTest.class,
         ParserTest.class,
+        IntCollectionTest.class,
         ReturningParserTest.class,
         CommandCompleteParserTest.class,
         CommandCompleteParserNegativeTest.class,

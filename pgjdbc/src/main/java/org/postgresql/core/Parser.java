@@ -14,6 +14,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -25,7 +26,7 @@ import java.util.List;
  * @author Christopher Deckers (chrriis@gmail.com)
  */
 public class Parser {
-  private static final int[] NO_BINDS = new int[0];
+  static final int[] EMPTY_INT_ARRAY = new int[0];
 
   /**
    * Parses JDBC query into PostgreSQL's native format. Several queries might be given if separated
@@ -57,7 +58,7 @@ public class Parser {
     char[] aChars = query.toCharArray();
 
     StringBuilder nativeSql = new StringBuilder(query.length() + 10);
-    List<Integer> bindPositions = null; // initialized on demand
+    IntCollection bindPositions = null; // initialized on demand
     List<NativeQuery> nativeQueries = null;
     boolean isCurrentReWriteCompatible = false;
     boolean isValuesFound = false;
@@ -123,7 +124,7 @@ public class Parser {
               nativeSql.append('?');
             } else {
               if (bindPositions == null) {
-                bindPositions = new ArrayList<Integer>();
+                bindPositions = new IntCollection();
               }
               bindPositions.add(nativeSql.length());
               int bindIndex = bindPositions.size();
@@ -364,21 +365,17 @@ public class Parser {
   }
 
   /**
-   * Converts {@code List<Integer>} to {@code int[]}. Empty and {@code null} lists are converted to
+   * Converts {@code IntCollection} to {@code int[]}. A {@code null} collection is converted to
    * empty array.
    *
    * @param list input list
    * @return output array
    */
-  private static int[] toIntArray(List<Integer> list) {
-    if (list == null || list.isEmpty()) {
-      return NO_BINDS;
+  private static int[] toIntArray(IntCollection list) {
+    if (list == null) {
+      return EMPTY_INT_ARRAY;
     }
-    int[] res = new int[list.size()];
-    for (int i = 0; i < list.size(); i++) {
-      res[i] = list.get(i); // must not be null
-    }
-    return res;
+    return list.toArray();
   }
 
   /**
@@ -1410,6 +1407,45 @@ public class Parser {
         }
       }
       return 0;
+    }
+  }
+
+  static final class IntCollection {
+    private int[] ints = new int[8];
+    private int index = 0;
+
+    public IntCollection() {
+    };
+
+    public void add(int i) {
+      if (index >= ints.length) {
+        // double in size until 1024 in size, then grow by 1.5x
+        final int newLength = ints.length < 1024 ? ints.length << 1 : (ints.length + (ints.length >> 1));
+        ints = Arrays.copyOf(ints, newLength);
+      }
+      ints[index++] = i;
+    }
+
+    public int size() {
+      return index;
+    }
+
+    public int get(int i) {
+      if (i < 0 || i >= index) {
+        throw new ArrayIndexOutOfBoundsException(i);
+      }
+      return ints[i];
+    }
+
+    public void clear() {
+      index = 0;
+    }
+
+    public int[] toArray() {
+      if (index == 0) {
+        return EMPTY_INT_ARRAY;
+      }
+      return Arrays.copyOf(ints, index);
     }
   }
 }
