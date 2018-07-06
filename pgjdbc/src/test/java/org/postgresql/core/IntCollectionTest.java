@@ -1,6 +1,12 @@
+/*
+ * Copyright (c) 2018, PostgreSQL Global Development Group
+ * See the LICENSE file in the project root for more information.
+ */
 package org.postgresql.core;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
 
 import org.postgresql.core.Parser.IntCollection;
 

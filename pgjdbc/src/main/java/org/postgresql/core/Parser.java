@@ -1414,8 +1414,8 @@ public class Parser {
     private int[] ints = new int[8];
     private int index = 0;
 
-    public IntCollection() {
-    };
+    IntCollection() {
+    }
 
     public void add(int i) {
       if (index >= ints.length) {
