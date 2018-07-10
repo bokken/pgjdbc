@@ -1432,7 +1432,7 @@ public class Parser {
 
     public int get(int i) {
       if (i < 0 || i >= index) {
-        throw new ArrayIndexOutOfBoundsException(i);
+        throw new ArrayIndexOutOfBoundsException("Index: " + i + ", Size: " + index);
       }
       return ints[i];
     }
