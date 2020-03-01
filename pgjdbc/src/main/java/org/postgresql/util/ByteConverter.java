@@ -6,12 +6,14 @@
 package org.postgresql.util;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.CharBuffer;
 
 /**
  * Helper methods to parse java base types from byte arrays.
  *
  * @author Mikko Tiihonen
+ * @author Brett Okken
  */
 public class ByteConverter {
 
@@ -24,6 +26,17 @@ public class ByteConverter {
   private static final int[] round_powers = {0, 1000, 100, 10};
   private static final int SHORT_BYTES = 2;
   private static final int LONG_BYTES = 4;
+  private static final int[] INT_TEN_POWERS = new int[4];
+  private static final long[] LONG_TEN_POWERS = new long[18];
+
+  static {
+    for (int i=0; i<INT_TEN_POWERS.length; ++i) {
+      INT_TEN_POWERS[i] = (int) Math.pow(10, i);
+    }
+    for (int i=0; i<LONG_TEN_POWERS.length; ++i) {
+      LONG_TEN_POWERS[i] = (long) Math.pow(10, i);
+    }
+  }
 
   private ByteConverter() {
     // prevent instantiation of static helper class
@@ -34,7 +47,7 @@ public class ByteConverter {
    * @param bytes array of bytes that can be decoded as an integer
    * @return integer
    */
-  public static int bytesToInt(byte []bytes) {
+  public static int bytesToInt(byte[] bytes) {
     if ( bytes.length == 1 ) {
       return (int)bytes[0];
     }
@@ -43,9 +56,8 @@ public class ByteConverter {
     }
     if ( bytes.length == LONG_BYTES ) {
       return int4(bytes, 0);
-    } else {
-      throw new IllegalArgumentException("Argument bytes is empty");
     }
+    throw new IllegalArgumentException("Argument bytes length invalid: " + bytes.length);
   }
 
   /**
@@ -77,9 +89,9 @@ public class ByteConverter {
    * @param scale the scale of the number binary representation
    * @param weight the weight of the number binary representation
    * @param sign the sign of the number
-   * @return String the number as String
+   * @return CharBuffer with position and limit set to reflect the valid characters in String representation of number.
    */
-  private static String numberBytesToString(short[] digits, int scale, int weight, int sign) {
+  private static CharBuffer numberBytesToString(short[] digits, int scale, int weight, int sign) {
     CharBuffer buffer;
     int i;
     int d;
@@ -135,7 +147,11 @@ public class ByteConverter {
      * terminate the string and return it
      */
     int extra = (i - scale) % DEC_DIGITS;
-    return new String(buffer.array(), 0, buffer.position() - extra);
+    if (extra > 0) {
+      buffer.position(buffer.position() - extra);
+    }
+    buffer.flip();
+    return buffer;
   }
 
   /**
@@ -148,21 +164,28 @@ public class ByteConverter {
   }
 
   /**
-   * Convert a variable length array of bytes to an integer
-   * @param bytes array of bytes that can be decoded as an integer
+   * Convert a variable length array of bytes to a {@link Number}. The result will
+   * always be a {@link BigDecimal} or {@link Double#NaN}.
+   *
+   * @param bytes array of bytes to be decoded from binary numeric representation.
    * @param pos index of the start position of the bytes array for number
    * @param numBytes number of bytes to use, length is already encoded
    *                in the binary format but this is used for double checking
-   * @return integer
+   * @return BigDecimal representation of numeric or {@link Double#NaN}.
    */
   public static Number numeric(byte [] bytes, int pos, int numBytes) {
+
     if (numBytes < 8) {
       throw new IllegalArgumentException("number of bytes should be at-least 8");
     }
 
+    //number of 2-byte shorts representing 4 decimal digits
     short len = ByteConverter.int2(bytes, pos);
+    //0 based number of 4 decimal digits (i.e. 2-byte shorts) before the decimal
     short weight = ByteConverter.int2(bytes, pos + 2);
+    //indicates positive, negative or NaN
     short sign = ByteConverter.int2(bytes, pos + 4);
+    //number of digits after the decimal
     short scale = ByteConverter.int2(bytes, pos + 6);
 
     if (numBytes != (len * SHORT_BYTES + 8)) {
@@ -183,10 +206,144 @@ public class ByteConverter {
       throw new IllegalArgumentException("invalid scale in \"numeric\" value");
     }
 
-    short[] digits = new short[len];
+    if (len == 0) {
+      return new BigDecimal(BigInteger.ZERO, scale);
+    }
+
     int idx = pos + 8;
+
+    short d = ByteConverter.int2(bytes, idx);
+
+    //if the absolute value is (0, 1), then leading '0' values
+    //do not matter for the unscaledInt, but trailing 0s do
+    if (weight < 0) {
+      assert scale > 0;
+      int effectiveScale = scale;
+
+      int i=1;
+      for ( ; i<len && d == 0; ++i) {
+        effectiveScale -= 4;
+        idx += 2;
+        d = ByteConverter.int2(bytes, idx);
+      }
+      if (d < 1000) {
+        --effectiveScale;
+        if (d < 100) {
+          --effectiveScale;
+          if (d < 10) {
+            --effectiveScale;
+          }
+        }
+      }
+      assert effectiveScale > 0;
+      if (effectiveScale <= 18) {
+        if (effectiveScale >= 4) {
+          effectiveScale -= 4;
+        } else {
+          d = (short) (d / INT_TEN_POWERS[4 - effectiveScale]);
+          effectiveScale = 0;
+        }
+        long unscaledInt = d;
+        for ( ; i<len; ++i) {
+          idx += 2;
+          d = ByteConverter.int2(bytes, idx);
+          if (effectiveScale >= 4) {
+            unscaledInt *= 10000;
+            effectiveScale -= 4;
+          } else {
+            unscaledInt *= INT_TEN_POWERS[effectiveScale];
+            d = (short) (d / INT_TEN_POWERS[4 - effectiveScale]);
+            effectiveScale = 0;
+          }
+          unscaledInt += d;
+        }
+        if (effectiveScale > 0) {
+          unscaledInt *= LONG_TEN_POWERS[effectiveScale];
+        }
+        if (sign == NUMERIC_NEG) {
+          unscaledInt = -unscaledInt;
+        }
+        return new BigDecimal(BigInteger.valueOf(unscaledInt), scale);
+      }
+    } else if (scale == 0) {
+      //if there is no scale, then shorts are the unscaled int
+      int digitCount = len * 4;
+      if (d < 1000) {
+        --digitCount;
+        if (d < 100) {
+          --digitCount;
+          if (d < 10) {
+            --digitCount;
+          }
+        }
+      }
+      if (digitCount <= 18) {
+        long unscaledInt = d;
+        for (int i=1 ; i<len; ++i) {
+          idx += 2;
+          d = ByteConverter.int2(bytes, idx);
+          unscaledInt *= 10000;
+          unscaledInt += d;
+        }
+        if (sign == NUMERIC_NEG) {
+          unscaledInt = -unscaledInt;
+        }
+        final int bigDecScale = (len - (weight + 1)) * 4;
+        final BigInteger unscaledBigInt = BigInteger.valueOf(unscaledInt);
+        //string representation always results in a BigDecimal with scale of 0
+        //the binary representation, where weight and len can infer trailing 0s, can result in a negative scale
+        //to produce a consistent BigDecimal, we return the equivalent object with scale set to 0
+        return bigDecScale == 0 ? new BigDecimal(unscaledBigInt) : new BigDecimal(unscaledBigInt, bigDecScale).setScale(0);
+      }
+    } else {
+      int digitCount = 4 * (weight + 1) + scale;
+      if (d < 1000) {
+        --digitCount;
+        if (d < 100) {
+          --digitCount;
+          if (d < 10) {
+            --digitCount;
+          }
+        }
+      }
+      if (digitCount <= 18) {
+        long unscaledInt = d;
+        int effectiveWeight = weight;
+        int effectiveScale = scale;
+        for (int i=1 ; i<len; ++i) {
+          idx += 2;
+          d = ByteConverter.int2(bytes, idx);
+          if (effectiveWeight > 0) {
+            --effectiveWeight;
+            unscaledInt *= 10000;
+          } else if (effectiveScale >= 4) {
+            effectiveScale -= 4;
+            unscaledInt *= 10000;
+          } else {
+            unscaledInt *= INT_TEN_POWERS[effectiveScale];
+            d = (short) (d / INT_TEN_POWERS[4 - effectiveScale]);
+            effectiveScale = 0;
+          }
+          unscaledInt += d;
+        }
+
+        if (effectiveScale > 0) {
+          unscaledInt *= LONG_TEN_POWERS[effectiveScale];
+        }
+        if (sign == NUMERIC_NEG) {
+          unscaledInt = -unscaledInt;
+        }
+        return new BigDecimal(BigInteger.valueOf(unscaledInt), scale);
+      }
+    }
+
+    //the unscaled value is too large to represent as a long
+    //it is easier (and less Object intensive) to convert to String and let BigDecimal do the parsing
+    //than to do the math for unscaled int with BigInteger
+    short[] digits = new short[len];
+    idx = pos + 8;
     for (int i = 0; i < len; i++) {
-      short d = ByteConverter.int2(bytes, idx);
+      d = ByteConverter.int2(bytes, idx);
       idx += 2;
 
       if (d < 0 || d >= NBASE) {
@@ -196,8 +353,8 @@ public class ByteConverter {
       digits[i] = d;
     }
 
-    String numString = numberBytesToString(digits, scale, weight, sign);
-    return new BigDecimal(numString);
+    final CharBuffer chars = numberBytesToString(digits, scale, weight, sign);
+    return new BigDecimal(chars.array(), 0, chars.limit());
   }
 
   /**
