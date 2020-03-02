@@ -30,6 +30,7 @@ import org.postgresql.test.util.LruCacheTest;
 import org.postgresql.test.util.PGPropertyMaxResultBufferParserTest;
 import org.postgresql.test.util.ServerVersionParseTest;
 import org.postgresql.test.util.ServerVersionTest;
+import org.postgresql.util.BigDecimalByteConverterTest;
 import org.postgresql.util.ReaderInputStreamTest;
 
 import org.junit.runner.RunWith;
@@ -45,6 +46,7 @@ import org.junit.runners.Suite;
     BatchedInsertReWriteEnabledTest.class,
     BatchExecuteTest.class,
     BatchFailureTest.class,
+    BigDecimalByteConverterTest.class,
     BlobTest.class,
     BlobTransactionTest.class,
     CallableStmtTest.class,
