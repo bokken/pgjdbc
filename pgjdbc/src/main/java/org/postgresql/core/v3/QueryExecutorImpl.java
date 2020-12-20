@@ -46,6 +46,7 @@ import org.postgresql.util.PSQLException;
 import org.postgresql.util.PSQLState;
 import org.postgresql.util.PSQLWarning;
 import org.postgresql.util.ServerErrorMessage;
+import org.postgresql.util.SimpleIntSet;
 
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -64,16 +65,18 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.PrimitiveIterator;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.IntConsumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.IntStream;
 
 /**
  * QueryExecutor implementation for the V3 protocol.
@@ -102,12 +105,12 @@ public class QueryExecutorImpl extends QueryExecutorBase {
   /**
    * Bit set that has a bit set for each oid which should be received using binary format.
    */
-  private final Set<Integer> useBinaryReceiveForOids = new HashSet<Integer>();
+  private final SimpleIntSet useBinaryReceiveForOids = new SimpleIntSet(23);
 
   /**
    * Bit set that has a bit set for each oid which should be sent using binary format.
    */
-  private final Set<Integer> useBinarySendForOids = new HashSet<Integer>();
+  private final SimpleIntSet useBinarySendForOids = new SimpleIntSet(23);
 
   /**
    * This is a fake query object so processResults can distinguish "ReadyForQuery" messages
@@ -2879,7 +2882,7 @@ public class QueryExecutorImpl extends QueryExecutorBase {
 
   @Override
   public boolean useBinaryForReceive(int oid) {
-    return useBinaryReceiveForOids.contains(oid);
+    return useBinaryReceiveForOids.containsKey(oid);
   }
 
   @Override
@@ -2888,15 +2891,33 @@ public class QueryExecutorImpl extends QueryExecutorBase {
     useBinaryReceiveForOids.addAll(oids);
   }
 
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void setBinaryReceiveOids(PrimitiveIterator.OfInt useBinaryForOids) {
+    useBinaryReceiveForOids.clear();
+    useBinaryForOids.forEachRemaining((IntConsumer) useBinaryReceiveForOids::add);
+  }
+
   @Override
   public boolean useBinaryForSend(int oid) {
-    return useBinarySendForOids.contains(oid);
+    return useBinarySendForOids.containsKey(oid);
   }
 
   @Override
   public void setBinarySendOids(Set<Integer> oids) {
     useBinarySendForOids.clear();
     useBinarySendForOids.addAll(oids);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void setBinarySendOids(PrimitiveIterator.OfInt useBinaryForOids) {
+    useBinarySendForOids.clear();
+    useBinaryForOids.forEachRemaining((IntConsumer) useBinarySendForOids::add);
   }
 
   private void setIntegerDateTimes(boolean state) {

@@ -39,6 +39,7 @@ import org.postgresql.util.PGBinaryObject;
 import org.postgresql.util.PGobject;
 import org.postgresql.util.PSQLException;
 import org.postgresql.util.PSQLState;
+import org.postgresql.util.SimpleIntSet;
 import org.postgresql.xml.DefaultPGXmlFactoryFactory;
 import org.postgresql.xml.LegacyInsecurePGXmlFactoryFactory;
 import org.postgresql.xml.PGXmlFactoryFactory;
@@ -87,7 +88,31 @@ import java.util.logging.Logger;
 public class PgConnection implements BaseConnection {
 
   private static final Logger LOGGER = Logger.getLogger(PgConnection.class.getName());
-  private static final Set<Integer> SUPPORTED_BINARY_OIDS = getSupportedBinaryOids();
+  private static final int[] SUPPORTED_BINARY_OIDS = new int[] {
+      Oid.BYTEA,
+      Oid.INT2,
+      Oid.INT4,
+      Oid.INT8,
+      Oid.FLOAT4,
+      Oid.FLOAT8,
+      Oid.TIME,
+      Oid.DATE,
+      Oid.TIMETZ,
+      Oid.TIMESTAMP,
+      Oid.TIMESTAMPTZ,
+      Oid.BYTEA_ARRAY,
+      Oid.INT2_ARRAY,
+      Oid.INT4_ARRAY,
+      Oid.INT8_ARRAY,
+      Oid.OID_ARRAY,
+      Oid.FLOAT4_ARRAY,
+      Oid.FLOAT8_ARRAY,
+      Oid.VARCHAR_ARRAY,
+      Oid.TEXT_ARRAY,
+      Oid.POINT,
+      Oid.BOX,
+      Oid.UUID
+  };
   private static final SQLPermission SQL_PERMISSION_ABORT = new SQLPermission("callAbort");
   private static final SQLPermission SQL_PERMISSION_NETWORK_TIMEOUT = new SQLPermission("setNetworkTimeout");
 
@@ -239,25 +264,24 @@ public class PgConnection implements BaseConnection {
 
     this.hideUnprivilegedObjects = PGProperty.HIDE_UNPRIVILEGED_OBJECTS.getBoolean(info);
 
-    Set<Integer> binaryOids = getBinaryOids(info);
+    final SimpleIntSet binaryOids = getBinaryOids(info);
 
-    // split for receive and send for better control
-    Set<Integer> useBinarySendForOids = new HashSet<Integer>(binaryOids);
-
-    Set<Integer> useBinaryReceiveForOids = new HashSet<Integer>(binaryOids);
+    //queryExecutor makes a defensive copy
+    queryExecutor.setBinaryReceiveOids(binaryOids.keyIterator());
+    if (LOGGER.isLoggable(Level.FINEST)) {
+      LOGGER.log(Level.FINEST, "    types using binary receive = {0}", oidsToString(binaryOids));
+    }
 
     /*
      * Does not pass unit tests because unit tests expect setDate to have millisecond accuracy
      * whereas the binary transfer only supports date accuracy.
      */
-    useBinarySendForOids.remove(Oid.DATE);
+    binaryOids.remove(Oid.DATE);
 
-    queryExecutor.setBinaryReceiveOids(useBinaryReceiveForOids);
-    queryExecutor.setBinarySendOids(useBinarySendForOids);
+    queryExecutor.setBinarySendOids(binaryOids.keyIterator());
 
     if (LOGGER.isLoggable(Level.FINEST)) {
-      LOGGER.log(Level.FINEST, "    types using binary send = {0}", oidsToString(useBinarySendForOids));
-      LOGGER.log(Level.FINEST, "    types using binary receive = {0}", oidsToString(useBinaryReceiveForOids));
+      LOGGER.log(Level.FINEST, "    types using binary send = {0}", oidsToString(binaryOids));
       LOGGER.log(Level.FINEST, "    integer date/time = {0}", queryExecutor.getIntegerDateTimes());
     }
 
@@ -342,40 +366,13 @@ public class PgConnection implements BaseConnection {
     }
   }
 
-  private static Set<Integer> getSupportedBinaryOids() {
-    return new HashSet<Integer>(Arrays.asList(
-        Oid.BYTEA,
-        Oid.INT2,
-        Oid.INT4,
-        Oid.INT8,
-        Oid.FLOAT4,
-        Oid.FLOAT8,
-        Oid.TIME,
-        Oid.DATE,
-        Oid.TIMETZ,
-        Oid.TIMESTAMP,
-        Oid.TIMESTAMPTZ,
-        Oid.BYTEA_ARRAY,
-        Oid.INT2_ARRAY,
-        Oid.INT4_ARRAY,
-        Oid.INT8_ARRAY,
-        Oid.OID_ARRAY,
-        Oid.FLOAT4_ARRAY,
-        Oid.FLOAT8_ARRAY,
-        Oid.VARCHAR_ARRAY,
-        Oid.TEXT_ARRAY,
-        Oid.POINT,
-        Oid.BOX,
-        Oid.UUID));
-  }
-
-  private static Set<Integer> getBinaryOids(Properties info) throws PSQLException {
+  private static SimpleIntSet getBinaryOids(Properties info) throws PSQLException {
     boolean binaryTransfer = PGProperty.BINARY_TRANSFER.getBoolean(info);
+
     // Formats that currently have binary protocol support
-    Set<Integer> binaryOids = new HashSet<Integer>(32);
-    if (binaryTransfer) {
-      binaryOids.addAll(SUPPORTED_BINARY_OIDS);
-    }
+    // no need to initialize to larger size as there is some room for addition and low probability of properties
+    // adding support for more
+    final SimpleIntSet binaryOids = binaryTransfer ? new SimpleIntSet(SUPPORTED_BINARY_OIDS) : new SimpleIntSet(6);
 
     String oids = PGProperty.BINARY_TRANSFER_ENABLE.get(info);
     if (oids != null) {
@@ -389,8 +386,8 @@ public class PgConnection implements BaseConnection {
     return binaryOids;
   }
 
-  private static Set<Integer> getOidSet(String oidList) throws PSQLException {
-    Set<Integer> oids = new HashSet<Integer>();
+  private static SimpleIntSet getOidSet(String oidList) throws PSQLException {
+    SimpleIntSet oids = new SimpleIntSet(8);
     StringTokenizer tokenizer = new StringTokenizer(oidList, ",");
     while (tokenizer.hasMoreTokens()) {
       String oid = tokenizer.nextToken();
@@ -399,12 +396,12 @@ public class PgConnection implements BaseConnection {
     return oids;
   }
 
-  private String oidsToString(Set<Integer> oids) {
+  private String oidsToString(SimpleIntSet oids) {
     StringBuilder sb = new StringBuilder();
-    for (Integer oid : oids) {
+    oids.forEachKey(oid -> {
       sb.append(Oid.toString(oid));
       sb.append(',');
-    }
+    });
     if (sb.length() > 0) {
       sb.setLength(sb.length() - 1);
     } else {

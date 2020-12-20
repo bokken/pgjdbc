@@ -22,8 +22,10 @@ import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.util.List;
 import java.util.Map;
+import java.util.PrimitiveIterator;
 import java.util.Set;
 import java.util.TimeZone;
+import java.util.stream.IntStream;
 
 /**
  * <p>Abstracts the protocol-specific details of executing a query.</p>
@@ -342,12 +344,16 @@ public interface QueryExecutor extends TypeTransferModeRegistry {
    */
   void setBinaryReceiveOids(Set<Integer> useBinaryForOids);
 
+  void setBinaryReceiveOids(PrimitiveIterator.OfInt useBinaryForOids);
+
   /**
    * Sets the oids that should be sent using binary encoding.
    *
    * @param useBinaryForOids The oids to send with binary encoding.
    */
   void setBinarySendOids(Set<Integer> useBinaryForOids);
+
+  void setBinarySendOids(PrimitiveIterator.OfInt useBinaryForOids);
 
   /**
    * Returns true if server uses integer instead of double for binary date and time encodings.

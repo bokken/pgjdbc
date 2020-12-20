@@ -14,6 +14,7 @@ import org.postgresql.util.GT;
 import org.postgresql.util.PGbytea;
 import org.postgresql.util.PSQLException;
 import org.postgresql.util.PSQLState;
+import org.postgresql.util.SimpleIntMap;
 
 import org.checkerframework.checker.index.qual.NonNegative;
 import org.checkerframework.checker.nullness.qual.NonNull;
@@ -28,9 +29,7 @@ import java.nio.ByteOrder;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Utility for decoding arrays.
@@ -361,8 +360,7 @@ final class ArrayDecoding {
    * entries.
    */
   @SuppressWarnings("rawtypes")
-  private static final Map<Integer, ArrayDecoder> OID_TO_DECODER = new HashMap<Integer, ArrayDecoder>(
-      (int) (21 / .75) + 1);
+  private static final SimpleIntMap<ArrayDecoder> OID_TO_DECODER = new SimpleIntMap<ArrayDecoder>(21);
 
   static {
     OID_TO_DECODER.put(Oid.OID, INT4_UNSIGNED_OBJ_ARRAY);

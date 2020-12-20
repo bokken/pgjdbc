@@ -5,14 +5,16 @@
 
 package org.postgresql.util;
 
+import java.util.Arrays;
+import java.util.NoSuchElementException;
+import java.util.PrimitiveIterator;
 import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 import java.util.function.IntFunction;
 import java.util.function.Supplier;
 
 /**
- * Base/common implementation of a simplified map implementation with {@code int} keys. Only
- * supports adding entries and replacing values. There is no ability to remove entries.
+ * Base/common implementation of a simplified map implementation with {@code int} keys.
  *
  * @author Brett Okken
  */
@@ -80,6 +82,19 @@ abstract class AbstractSimpleIntMap<E extends AbstractSimpleIntMap.BaseEntry<E>>
   }
 
   /**
+   * Removes all entries.
+   *
+   * @see java.util.Collection#clear()
+   * @see java.util.Map#clear()
+   */
+  public final void clear() {
+    if (size > 0) {
+      Arrays.fill(nodes, null);
+      size = 0;
+    }
+  }
+
+  /**
    * If no entry is present for <i>key</i>, <i>supplier</i> is used to create an entry instance
    * and it is added. If an entry exists, it is returned (un-modified).
    * @param key The key for entry to manage.
@@ -90,8 +105,17 @@ abstract class AbstractSimpleIntMap<E extends AbstractSimpleIntMap.BaseEntry<E>>
     return manageEntry(key, supplier, true);
   }
 
+  /**
+   * @param key
+   * @return
+   */
+  private int index(int key) {
+    //ignore sign bit to always get positive value
+    return (key & 0x7FFFFFFF) % nodes.length;
+  }
+
   private final E manageEntry(int key, Supplier<E> supplier, boolean resize) {
-    int idx = key % nodes.length;
+    int idx = index(key);
     E node = nodes[idx];
     if (node == null) {
       nodes[idx] = supplier.get();
@@ -123,7 +147,7 @@ abstract class AbstractSimpleIntMap<E extends AbstractSimpleIntMap.BaseEntry<E>>
    * @param entry The entry to add.
    */
   private void addEntry(E entry) {
-    int idx = entry.key % nodes.length;
+    int idx = index(entry.key);
     E node = nodes[idx];
     if (node == null) {
       nodes[idx] = entry;
@@ -136,12 +160,42 @@ abstract class AbstractSimpleIntMap<E extends AbstractSimpleIntMap.BaseEntry<E>>
   }
 
   /**
+   * Removes the entry with key <i>key</i>.
+   * @param key The key to remove.
+   * @return The entry removed for <i>key</i> or {@code null} if no entry exists.
+   */
+  final E removeEntry(int key) {
+    int idx = index(key);
+    E node = nodes[idx];
+    if (node == null) {
+      return null;
+    }
+    if (node.key == key) {
+      nodes[idx] = node.next;
+      node.next = null;
+      --size;
+      return node;
+    }
+    while (node.next != null) {
+      E next = node.next;
+      if (next.key == key) {
+        node.next = next.next;
+        next.next = null;
+        --size;
+        return next;
+      }
+      node = next;
+    }
+    return null;
+  }
+
+  /**
    * Returns existing Entry for <i>key</i>.
    * @param key The key to get Entry for.
    * @return existing Entry for <i>key</i> or {@code null} if no entry present.
    */
   final E getEntry(int key) {
-    E entry = nodes[key % nodes.length];
+    E entry = nodes[index(key)];
     while(entry != null) {
       if (key == entry.key) {
           return entry;
@@ -190,7 +244,7 @@ abstract class AbstractSimpleIntMap<E extends AbstractSimpleIntMap.BaseEntry<E>>
     }
   }
 
-  private void grow() {
+  private final void grow() {
     E[] orig = nodes;
     nodes = arrayFunction.apply(nextSize(size));
     for (int i=0; i<orig.length; ++i) {
@@ -202,6 +256,40 @@ abstract class AbstractSimpleIntMap<E extends AbstractSimpleIntMap.BaseEntry<E>>
         entry = next;
       }
     }
+  }
+
+  /**
+   * Provides iterator of all keys in instance.
+   * <p>
+   * Modification of this instance while iterating will result in indeterminate behavior.
+   * </p>
+   * @return iterator of all keys in instance.
+   */
+  public final PrimitiveIterator.OfInt keyIterator() {
+
+    return new PrimitiveIterator.OfInt() {
+      final E[] nodes = AbstractSimpleIntMap.this.nodes;
+      int idx;
+      E next;
+
+      @Override
+      public boolean hasNext() {
+        for ( ; next == null && idx < nodes.length; ++idx) {
+          next = nodes[idx];
+        }
+        return next != null;
+      }
+
+      @Override
+      public int nextInt() {
+        if (next == null && !hasNext()) {
+          throw new NoSuchElementException();
+        }
+        int val = next.key;
+        next = next.next;
+        return val;
+      }
+    };
   }
 
   private static int nextSize(int size) {

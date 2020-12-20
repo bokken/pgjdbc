@@ -8,6 +8,7 @@ package org.postgresql.core;
 import org.postgresql.util.GT;
 import org.postgresql.util.PSQLException;
 import org.postgresql.util.PSQLState;
+import org.postgresql.util.SimpleIntMap;
 
 import java.lang.reflect.Field;
 import java.util.HashMap;
@@ -89,7 +90,7 @@ public class Oid {
   public static final int TSVECTOR = 3614;
   public static final int TSQUERY = 3615;
 
-  private static final Map<Integer, String> OID_TO_NAME = new HashMap<Integer, String>(100);
+  private static final SimpleIntMap<String> OID_TO_NAME = new SimpleIntMap<String>(100);
   private static final Map<String, Integer> NAME_TO_OID = new HashMap<String, Integer>(100);
 
   static {

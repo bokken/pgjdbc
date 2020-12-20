@@ -101,6 +101,18 @@ public final class SimpleIntMap<V> extends AbstractSimpleIntMap<SimpleIntMap.Ent
   }
 
   /**
+   * Removes value from map at <i>key</i>.
+   *
+   * @param key The key to remove from this instance.
+   * @return the previous value for <i>key</i> or {@code null} if no entry existed.
+   * @see java.util.Map#remove(Object)
+   */
+  public V remove(int key) {
+    final EntryImpl<V> existing = removeEntry(key);
+    return existing == null ? null : existing.value;
+  }
+
+  /**
    * Performs <i>action</i> for each entry in the map.
    *
    * @param action The action to execute for each entry.
