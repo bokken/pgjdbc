@@ -5,6 +5,8 @@
 
 package org.postgresql.util;
 
+import static org.postgresql.util.internal.Nullness.*;
+
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 import java.util.Arrays;
@@ -288,7 +290,7 @@ abstract class AbstractSimpleIntMap<E extends AbstractSimpleIntMap.BaseEntry<E>>
         if (next == null && !hasNext()) {
           throw new NoSuchElementException();
         }
-        int val = next.key;
+        int val = castNonNull(next).key;
         next = next.next;
         return val;
       }
