@@ -76,7 +76,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.IntConsumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.stream.IntStream;
 
 /**
  * QueryExecutor implementation for the V3 protocol.

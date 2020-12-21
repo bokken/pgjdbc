@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.PrimitiveIterator;
 import java.util.Set;
 import java.util.TimeZone;
-import java.util.stream.IntStream;
 
 /**
  * <p>Abstracts the protocol-specific details of executing a query.</p>

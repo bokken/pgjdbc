@@ -271,8 +271,8 @@ abstract class AbstractSimpleIntMap<E extends AbstractSimpleIntMap.BaseEntry<E>>
 
     return new PrimitiveIterator.OfInt() {
       final E[] nodes = AbstractSimpleIntMap.this.nodes;
-      int idx;
-      E next;
+      int idx = 0;
+      E next = null;
 
       @Override
       public boolean hasNext() {
