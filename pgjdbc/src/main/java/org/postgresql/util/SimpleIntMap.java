@@ -27,6 +27,7 @@ public final class SimpleIntMap<V> extends AbstractSimpleIntMap<SimpleIntMap.Ent
 
   static final class EntryImpl<V> extends AbstractSimpleIntMap.BaseEntry<EntryImpl<V>> {
     @Nullable V value;
+
     protected EntryImpl(int key, @Nullable V value) {
       super(key);
       this.value = value;
@@ -56,11 +57,11 @@ public final class SimpleIntMap<V> extends AbstractSimpleIntMap<SimpleIntMap.Ent
    * @see java.util.Map#put(Object, Object)
    */
   public @Nullable V put(int key, @Nullable V value) {
-    final EntryImpl<V> existing = manageEntry(key, () ->  new EntryImpl<V>(key, value));
+    final @Nullable EntryImpl<V> existing = manageEntry(key, () ->  new EntryImpl<V>(key, value));
     if (existing != null) {
-        V existingValue = existing.value;
-        existing.value = value;
-        return existingValue;
+      @Nullable V existingValue = existing.value;
+      existing.value = value;
+      return existingValue;
     }
     return null;
   }
@@ -74,7 +75,7 @@ public final class SimpleIntMap<V> extends AbstractSimpleIntMap<SimpleIntMap.Ent
    * @see java.util.Map#putIfAbsent(Object, Object)
    */
   public @Nullable V putIfAbsent(int key, @Nullable V value) {
-    final EntryImpl<V> existing = manageEntry(key, () ->  new EntryImpl<V>(key, value));
+    final @Nullable EntryImpl<V> existing = manageEntry(key, () ->  new EntryImpl<V>(key, value));
     return existing == null ? null : existing.value;
   }
 
@@ -98,7 +99,7 @@ public final class SimpleIntMap<V> extends AbstractSimpleIntMap<SimpleIntMap.Ent
    * @see java.util.Map#getOrDefault(Object, Object)
    */
   public @Nullable V getOrDefault(int key, @Nullable V def) {
-    final EntryImpl<V> existing = getEntry(key);
+    final @Nullable EntryImpl<V> existing = getEntry(key);
     return existing != null ? existing.value : def;
   }
 
@@ -110,7 +111,7 @@ public final class SimpleIntMap<V> extends AbstractSimpleIntMap<SimpleIntMap.Ent
    * @see java.util.Map#remove(Object)
    */
   public @Nullable V remove(int key) {
-    final EntryImpl<V> existing = removeEntry(key);
+    final @Nullable EntryImpl<V> existing = removeEntry(key);
     return existing == null ? null : existing.value;
   }
 

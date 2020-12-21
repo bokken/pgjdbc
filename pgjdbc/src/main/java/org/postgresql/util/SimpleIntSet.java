@@ -5,6 +5,8 @@
 
 package org.postgresql.util;
 
+import org.checkerframework.checker.nullness.qual.Nullable;
+
 import java.util.Collection;
 import java.util.Objects;
 
@@ -16,6 +18,7 @@ import java.util.Objects;
 public final class SimpleIntSet extends AbstractSimpleIntMap<SimpleIntSet.EntryImpl> {
 
   static final class EntryImpl extends AbstractSimpleIntMap.BaseEntry<EntryImpl> {
+
     protected EntryImpl(int key) {
       super(key);
     }
@@ -70,7 +73,7 @@ public final class SimpleIntSet extends AbstractSimpleIntMap<SimpleIntSet.EntryI
    * @see java.util.Set#add(Object)
    */
   public boolean add(int val) {
-    final EntryImpl existing = manageEntry(val, () ->  new EntryImpl(val));
+    final @Nullable EntryImpl existing = manageEntry(val, () ->  new EntryImpl(val));
     return existing == null;
   }
 
@@ -108,7 +111,7 @@ public final class SimpleIntSet extends AbstractSimpleIntMap<SimpleIntSet.EntryI
    * @see java.util.Set#remove(Object)
    */
   public boolean remove(int val) {
-    final EntryImpl existing = removeEntry(val);
+    final @Nullable EntryImpl existing = removeEntry(val);
     return existing != null;
   }
 

@@ -26,6 +26,7 @@ public final class SimpleIntIntMap extends AbstractSimpleIntMap<SimpleIntIntMap.
 
   static final class EntryImpl extends AbstractSimpleIntMap.BaseEntry<EntryImpl> {
     int value;
+
     protected EntryImpl(int key, int value) {
       super(key);
       this.value = value;
@@ -55,11 +56,11 @@ public final class SimpleIntIntMap extends AbstractSimpleIntMap<SimpleIntIntMap.
    * @see java.util.Map#put(Object, Object)
    */
   public @Nullable Integer put(int key, int value) {
-    final EntryImpl existing = manageEntry(key, () ->  new EntryImpl(key, value));
+    final @Nullable EntryImpl existing = manageEntry(key, () ->  new EntryImpl(key, value));
     if (existing != null) {
-        int existingValue = existing.value;
-        existing.value = value;
-        return existingValue;
+      int existingValue = existing.value;
+      existing.value = value;
+      return existingValue;
     }
     return null;
   }
@@ -74,7 +75,7 @@ public final class SimpleIntIntMap extends AbstractSimpleIntMap<SimpleIntIntMap.
    * @see java.util.Map#putIfAbsent(Object, Object)
    */
   public @Nullable Integer putIfAbsent(int key, int value) {
-    final EntryImpl existing = manageEntry(key, () ->  new EntryImpl(key, value));
+    final @Nullable EntryImpl existing = manageEntry(key, () ->  new EntryImpl(key, value));
     return existing == null ? null : existing.value;
   }
 
@@ -87,7 +88,7 @@ public final class SimpleIntIntMap extends AbstractSimpleIntMap<SimpleIntIntMap.
    * @see java.util.Map#getOrDefault(Object, Object)
    */
   public int getOrDefault(int key, int def) {
-    final EntryImpl existing = getEntry(key);
+    final @Nullable EntryImpl existing = getEntry(key);
     return existing != null ? existing.value : def;
   }
 
@@ -99,7 +100,7 @@ public final class SimpleIntIntMap extends AbstractSimpleIntMap<SimpleIntIntMap.
    * @see java.util.Map#remove(Object)
    */
   public @Nullable Integer remove(int key) {
-    final EntryImpl existing = removeEntry(key);
+    final @Nullable EntryImpl existing = removeEntry(key);
     return existing == null ? null : existing.value;
   }
 

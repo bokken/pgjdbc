@@ -29,6 +29,7 @@ abstract class AbstractSimpleIntMap<E extends AbstractSimpleIntMap.BaseEntry<E>>
   abstract static class BaseEntry<E extends AbstractSimpleIntMap.BaseEntry<E>> {
     final int key;
     @Nullable E next = null;
+
     protected BaseEntry(int key) {
       this.key = key;
     }
@@ -108,17 +109,17 @@ abstract class AbstractSimpleIntMap<E extends AbstractSimpleIntMap.BaseEntry<E>>
   }
 
   /**
-   * @param key
-   * @return
+   * @param key The key to find index for.
+   * @return index into <i>nodes</i> which is appropriate for <i>key</i>.
    */
   private int index(int key) {
     //ignore sign bit to always get positive value
     return (key & 0x7FFFFFFF) % nodes.length;
   }
 
-  private final @Nullable E manageEntry(int key, Supplier<E> supplier, boolean resize) {
+  private @Nullable E manageEntry(int key, Supplier<E> supplier, boolean resize) {
     int idx = index(key);
-    E node = nodes[idx];
+    @Nullable E node = nodes[idx];
     if (node == null) {
       nodes[idx] = supplier.get();
       ++size;
@@ -128,7 +129,7 @@ abstract class AbstractSimpleIntMap<E extends AbstractSimpleIntMap.BaseEntry<E>>
       return node;
     }
     int count = 1;
-    while(node.next != null) {
+    while (node.next != null) {
       node = node.next;
       if (node.key == key) {
         return node;
@@ -150,11 +151,11 @@ abstract class AbstractSimpleIntMap<E extends AbstractSimpleIntMap.BaseEntry<E>>
    */
   private void addEntry(E entry) {
     int idx = index(entry.key);
-    E node = nodes[idx];
+    @Nullable E node = nodes[idx];
     if (node == null) {
       nodes[idx] = entry;
     } else {
-      while(node.next != null) {
+      while (node.next != null) {
         node = node.next;
       }
       node.next = entry;
@@ -168,7 +169,7 @@ abstract class AbstractSimpleIntMap<E extends AbstractSimpleIntMap.BaseEntry<E>>
    */
   final @Nullable E removeEntry(int key) {
     int idx = index(key);
-    E node = nodes[idx];
+    @Nullable E node = nodes[idx];
     if (node == null) {
       return null;
     }
@@ -179,7 +180,7 @@ abstract class AbstractSimpleIntMap<E extends AbstractSimpleIntMap.BaseEntry<E>>
       return node;
     }
     while (node.next != null) {
-      E next = node.next;
+      @Nullable E next = node.next;
       if (next.key == key) {
         node.next = next.next;
         next.next = null;
@@ -197,10 +198,10 @@ abstract class AbstractSimpleIntMap<E extends AbstractSimpleIntMap.BaseEntry<E>>
    * @return existing Entry for <i>key</i> or {@code null} if no entry present.
    */
   final @Nullable E getEntry(int key) {
-    E entry = nodes[index(key)];
-    while(entry != null) {
+    @Nullable E entry = nodes[index(key)];
+    while (entry != null) {
       if (key == entry.key) {
-          return entry;
+        return entry;
       }
       entry = entry.next;
     }
@@ -223,8 +224,8 @@ abstract class AbstractSimpleIntMap<E extends AbstractSimpleIntMap.BaseEntry<E>>
    * @see java.util.Map#forEach(java.util.function.BiConsumer)
    */
   final void forEachEntry(Consumer<? super E> action) {
-    for (int i=0; i<nodes.length; ++i) {
-      E entry = nodes[i];
+    for (int i = 0; i < nodes.length; ++i) {
+      @Nullable E entry = nodes[i];
       while (entry != null) {
         action.accept(entry);
         entry = entry.next;
@@ -237,8 +238,8 @@ abstract class AbstractSimpleIntMap<E extends AbstractSimpleIntMap.BaseEntry<E>>
    * @param action The action to call for each key which has an entry.
    */
   public final void forEachKey(IntConsumer action) {
-    for (int i=0; i<nodes.length; ++i) {
-      E entry = nodes[i];
+    for (int i = 0; i < nodes.length; ++i) {
+      @Nullable E entry = nodes[i];
       while (entry != null) {
         action.accept(entry.key);
         entry = entry.next;
@@ -246,10 +247,10 @@ abstract class AbstractSimpleIntMap<E extends AbstractSimpleIntMap.BaseEntry<E>>
     }
   }
 
-  private final void grow() {
-    E[] orig = nodes;
+  private void grow() {
+    @Nullable E[] orig = nodes;
     nodes = arrayFunction.apply(nextSize(size));
-    for (int i=0; i<orig.length; ++i) {
+    for (int i = 0; i < orig.length; ++i) {
       E entry = orig[i];
       while (entry != null) {
         E next = entry.next;
@@ -270,9 +271,9 @@ abstract class AbstractSimpleIntMap<E extends AbstractSimpleIntMap.BaseEntry<E>>
   public final PrimitiveIterator.OfInt keyIterator() {
 
     return new PrimitiveIterator.OfInt() {
-      final E[] nodes = AbstractSimpleIntMap.this.nodes;
+      final @Nullable E[] nodes = AbstractSimpleIntMap.this.nodes;
       int idx = 0;
-      E next = null;
+      @Nullable E next = null;
 
       @Override
       public boolean hasNext() {
@@ -304,11 +305,10 @@ abstract class AbstractSimpleIntMap<E extends AbstractSimpleIntMap.BaseEntry<E>>
   @Override
   public final String toString() {
     final StringBuilder sb = new StringBuilder(32 + (size * 16));
-    sb.append(getClass().getSimpleName())
-      .append(" [");
+    sb.append(getClass().getSimpleName()).append(" [");
     boolean first = true;
-    for (int i=0; i<nodes.length; ++i) {
-      E entry = nodes[i];
+    for (int i = 0; i < nodes.length; ++i) {
+      @Nullable E entry = nodes[i];
       while (entry != null) {
         if (!first) {
           sb.append(',');

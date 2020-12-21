@@ -22,5 +22,5 @@ public interface IntObjConsumer<U> {
    * @param t the first input argument
    * @param u the second input argument
    */
-  public void accept(int t, @Nullable U u);
+  void accept(int t, @Nullable U u);
 }
