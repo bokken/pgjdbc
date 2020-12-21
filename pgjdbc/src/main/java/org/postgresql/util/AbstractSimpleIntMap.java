@@ -5,7 +5,7 @@
 
 package org.postgresql.util;
 
-import static org.postgresql.util.internal.Nullness.*;
+import static org.postgresql.util.internal.Nullness.castNonNull;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
 
