@@ -19,6 +19,8 @@ import java.sql.Array;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Map;
+import java.util.PrimitiveIterator;
+import java.util.TimeZone;
 
 /**
  * This interface defines the public PostgreSQL extensions to java.sql.Connection. All Connections
@@ -43,6 +45,67 @@ public interface PGConnection {
    * @see java.sql.Connection#createArrayOf(String, Object[])
    */
   Array createArrayOf(String typeName, @Nullable Object elements) throws SQLException;
+
+  /**
+   * Creates an {@link Array} containing the {@code int} values in <i>intIter</i>.
+   *
+   * @param typeName
+   *          The SQL name of the type to map the <i>elements</i> to.
+   *          Must not be {@code null}.
+   * @param size
+   *          The number of elements in <i>intIter</i>.
+   * @param intIter
+   *          The elements to create an {@link Array} of. Must not be {@code null}.
+   * @param elements
+   *          The array of objects to map. A {@code null} value will result in
+   *          an {@link Array} representing {@code null}.
+   * @return An {@link Array} wrapping <i>elements</i>.
+   * @throws SQLException
+   *           If for some reason the array cannot be created.
+   */
+  Array createArrayOf(String typeName, int size, PrimitiveIterator.OfInt intIter) throws SQLException;
+
+  /**
+   * Creates an {@link Array} containing the {@code long} values in <i>longIter</i>.
+   *
+   * @param typeName
+   *          The SQL name of the type to map the <i>elements</i> to.
+   *          Must not be {@code null}.
+   * @param size
+   *          The number of elements in <i>longIter</i>.
+   * @param longIter
+   *          The elements to create an {@link Array} of. Must not be {@code null}.
+   * @param elements
+   *          The array of objects to map. A {@code null} value will result in
+   *          an {@link Array} representing {@code null}.
+   * @return An {@link Array} wrapping <i>elements</i>.
+   * @throws SQLException
+   *           If for some reason the array cannot be created.
+   */
+  Array createArrayOf(String typeName, int size, PrimitiveIterator.OfLong longIter) throws SQLException;
+
+  /**
+   * Creates an {@link Array} containing the {@code double} values in <i>doubleIter</i>.
+   *
+   * @param typeName
+   *          The SQL name of the type to map the <i>elements</i> to.
+   *          Must not be {@code null}.
+   * @param size
+   *          The number of elements in <i>longIter</i>.
+   * @param doubleIter
+   *          The elements to create an {@link Array} of. Must not be {@code null}.
+   * @param elements
+   *          The array of objects to map. A {@code null} value will result in
+   *          an {@link Array} representing {@code null}.
+   * @return An {@link Array} wrapping <i>elements</i>.
+   * @throws SQLException
+   *           If for some reason the array cannot be created.
+   */
+  Array createArrayOf(String typeName, int size, PrimitiveIterator.OfDouble doubleIter) throws SQLException;
+
+//  <T> Array createArrayOf(String typeName, Collection<? extends T> items, Class<T> clazz) throws SQLException;
+//
+//  <T> Array createArrayOf(String typeName, int size, Iterator<? extends T> iter, Class<T> clazz) throws SQLException;
 
   /**
    * This method returns any notifications that have been received since the last call to this

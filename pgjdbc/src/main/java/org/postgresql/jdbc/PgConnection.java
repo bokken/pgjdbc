@@ -29,6 +29,7 @@ import org.postgresql.core.TypeInfo;
 import org.postgresql.core.Utils;
 import org.postgresql.core.Version;
 import org.postgresql.fastpath.Fastpath;
+import org.postgresql.jdbc.ArrayEncoding.PrimitiveIteratorArrayEncoder;
 import org.postgresql.largeobject.LargeObjectManager;
 import org.postgresql.replication.PGReplicationConnection;
 import org.postgresql.replication.PGReplicationConnectionImpl;
@@ -74,6 +75,8 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.PrimitiveIterator;
+import java.util.PrimitiveIterator.OfDouble;
 import java.util.Properties;
 import java.util.Set;
 import java.util.StringTokenizer;
@@ -81,6 +84,7 @@ import java.util.TimeZone;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.Executor;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -1370,6 +1374,44 @@ public class PgConnection implements BaseConnection {
   public Struct createStruct(String typeName, Object[] attributes) throws SQLException {
     checkClosed();
     throw org.postgresql.Driver.notImplemented(this.getClass(), "createStruct(String, Object[])");
+  }
+
+  @Override
+  public Array createArrayOf(String typeName, int size, PrimitiveIterator.OfInt intIter) throws SQLException {
+    return createArrayOf(typeName, size, intIter, ArrayEncoding::getPrimitiveIntArrayEncoder);
+  }
+
+  @Override
+  public Array createArrayOf(String typeName, int size, PrimitiveIterator.OfLong longIter) throws SQLException {
+    return createArrayOf(typeName, size, longIter, ArrayEncoding::getPrimitiveLongArrayEncoder);
+  }
+
+  @Override
+  public Array createArrayOf(String typeName, int size, OfDouble doubleIter) throws SQLException {
+    return createArrayOf(typeName, size, doubleIter, ArrayEncoding::getPrimitiveDoubleArrayEncoder);
+  }
+
+  private <I extends PrimitiveIterator<?,?>> Array createArrayOf(String typeName, int size, I longIter, Supplier<PrimitiveIteratorArrayEncoder<?, I>> encoderSupplier)
+      throws SQLException {
+    checkClosed();
+
+    final TypeInfo typeInfo = getTypeInfo();
+
+    final int oid = typeInfo.getPGArrayType(typeName);
+    final char delim = typeInfo.getArrayDelimiter(oid);
+
+    if (oid == Oid.UNSPECIFIED) {
+      throw new PSQLException(GT.tr("Unable to find server array type for provided name {0}.", typeName),
+          PSQLState.INVALID_NAME);
+    }
+
+    final PrimitiveIteratorArrayEncoder<?, I> arraySupport = encoderSupplier.get();
+    if (arraySupport.supportBinaryRepresentation(oid) && getPreferQueryMode() != PreferQueryMode.SIMPLE) {
+      return new PgArray(this, oid, arraySupport.toBinaryRepresentation(this, size, longIter, oid));
+    }
+
+    final String arrayString = arraySupport.toArrayString(delim, size, longIter);
+    return makeArray(oid, arrayString);
   }
 
   @SuppressWarnings({ "rawtypes", "unchecked" })

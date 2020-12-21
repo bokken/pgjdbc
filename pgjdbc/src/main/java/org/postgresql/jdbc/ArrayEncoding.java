@@ -23,6 +23,12 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.PrimitiveIterator;
+import java.util.PrimitiveIterator.OfDouble;
+import java.util.PrimitiveIterator.OfInt;
+import java.util.PrimitiveIterator.OfLong;
+import java.util.function.Function;
 
 /**
  * Utility for using arrays in requests.
@@ -101,6 +107,45 @@ final class ArrayEncoding {
      *           <i>oid</i>.
      */
     byte[] toBinaryRepresentation(BaseConnection connection, A array, int oid)
+        throws SQLException, SQLFeatureNotSupportedException;
+  }
+
+  public interface PrimitiveIteratorArrayEncoder<A, I extends PrimitiveIterator<?, ?>> extends ArrayEncoder<A> {
+
+    /**
+     * Creates {@code String} representation of the <i>iterator</i>.
+     *
+     * @param delim
+     *          The character to use to delimit between elements.
+     * @param size
+     *          The number of elements in <i>iterator</i>.
+     * @param iterator
+     *          The iterator to represent contents as a {@code String}.
+     * @return {@code String} representation of the <i>array</i>.
+     */
+    String toArrayString(char delim, int size, I iterator);
+
+    /**
+     * Creates binary representation of the <i>array</i>.
+     *
+     * @param connection
+     *          The connection the binary representation will be used on. Attributes
+     *          from the connection might impact how values are translated to
+     *          binary.
+     * @param size
+     *          The number of elements in <i>iterator</i>.
+     * @param iterator
+     *          The iterator of elements to binary encode. Must not be {@code null}.
+     * @param oid
+     *          The array type oid to use. Calls to
+     *          {@link #supportBinaryRepresentation(int)} must have returned
+     *          {@code true}.
+     * @return The binary representation of <i>array</i>.
+     * @throws SQLFeatureNotSupportedException
+     *           If {@link #supportBinaryRepresentation(int)} is false for
+     *           <i>oid</i>.
+     */
+    byte[] toBinaryRepresentation(BaseConnection connection, int size, I iterator, int oid)
         throws SQLException, SQLFeatureNotSupportedException;
   }
 
@@ -383,7 +428,14 @@ final class ArrayEncoding {
         throws SQLException, SQLFeatureNotSupportedException {
       assert oid == arrayOid;
 
-      final int arrayLength = Array.getLength(array);
+      final byte[] bytes = createArrayAndPopulateHeader(Array.getLength(array), oid);
+
+      write(array, bytes, 20);
+
+      return bytes;
+    }
+
+    protected final byte[] createArrayAndPopulateHeader(int arrayLength, int oid) {
       final int length = 20 + ((fieldSize + 4) * arrayLength);
       final byte[] bytes = new byte[length];
 
@@ -397,8 +449,6 @@ final class ArrayEncoding {
       ByteConverter.int4(bytes, 12, arrayLength);
       // postgresql uses 1 base by default
       ByteConverter.int4(bytes, 16, 1);
-
-      write(array, bytes, 20);
 
       return bytes;
     }
@@ -430,33 +480,111 @@ final class ArrayEncoding {
     protected abstract void write(A array, byte[] bytes, int offset);
   }
 
-  private static final AbstractArrayEncoder<long @NonNull []> LONG_ARRAY = new FixedSizePrimitiveArrayEncoder<long @NonNull []>(8, Oid.INT8,
-      Oid.INT8_ARRAY) {
+  private abstract static class FixedSizePrimitiveIteratorArrayEncoder<A, I extends PrimitiveIterator<?, ?>> extends FixedSizePrimitiveArrayEncoder<A> implements PrimitiveIteratorArrayEncoder<A, I> {
+
+    private final Function<A, I> toIterFunction;
 
     /**
-     * {@inheritDoc}
+     * @param fieldSize
+     * @param oid
+     * @param arrayOid
      */
-    @Override
-    public void appendArray(StringBuilder sb, char delim, long[] array) {
-      sb.append('{');
-      for (int i = 0; i < array.length; ++i) {
-        if (i > 0) {
-          sb.append(delim);
-        }
-        sb.append(array[i]);
-      }
-      sb.append('}');
+    FixedSizePrimitiveIteratorArrayEncoder(int fieldSize, int oid, int arrayOid, Function<A, I> toIterFunction) {
+      super(fieldSize, oid, arrayOid);
+      this.toIterFunction = toIterFunction;
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    protected void write(long[] array, byte[] bytes, int offset) {
+    public String toArrayString(char delim, int size, I iterator) {
+      final StringBuilder sb = new StringBuilder(size * 8);
+      appendArray(sb, delim, iterator);
+      return sb.toString();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    void appendArray(StringBuilder sb, char delim, A array) {
+      appendArray(sb, delim, toIterFunction.apply(array));
+    }
+
+    abstract void appendArray(StringBuilder sb, char delim, I iterator);
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public byte[] toBinaryRepresentation(BaseConnection connection, int size, I iterator, int oid)
+        throws SQLException, SQLFeatureNotSupportedException {
+      assert oid == arrayOid;
+
+      final byte[] bytes = createArrayAndPopulateHeader(size, oid);
+
+      write(iterator, bytes, 20);
+
+      return bytes;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void write(A array, byte[] bytes, int offset) {
+      write(toIterFunction.apply(array), bytes, offset);
+    }
+
+    abstract void write(I iter, byte[] bytes, int offset);
+  }
+
+  private static final class PrimitiveLongIterator implements PrimitiveIterator.OfLong {
+    final long[] longs;
+    int idx = 0;
+
+    public PrimitiveLongIterator (long[] longs) {
+      this.longs = longs;
+    }
+
+    @Override
+    public boolean hasNext() {
+      return idx < longs.length;
+    }
+
+    @Override
+    public long nextLong() {
+      if (!hasNext()) {
+        throw new NoSuchElementException();
+      }
+      return longs[idx++];
+    }
+  }
+
+  private static final FixedSizePrimitiveIteratorArrayEncoder<long @NonNull [], PrimitiveIterator.OfLong> LONG_ARRAY =
+      new FixedSizePrimitiveIteratorArrayEncoder<long @NonNull [], PrimitiveIterator.OfLong>(8, Oid.INT8, Oid.INT8_ARRAY, PrimitiveLongIterator::new) {
+
+    @Override
+    void appendArray(StringBuilder sb, char delim, OfLong iterator) {
+      sb.append('{');
+      boolean first = true;
+      while (iterator.hasNext()) {
+        if (!first) {
+          sb.append(delim);
+        }
+        sb.append(iterator.nextLong());
+        first = false;
+      }
+      sb.append('}');
+    }
+
+    @Override
+    void write(OfLong iter, byte[] bytes, int offset) {
       int idx = offset;
-      for (int i = 0; i < array.length; ++i) {
+      while (iter.hasNext()) {
         bytes[idx + 3] = 8;
-        ByteConverter.int8(bytes, idx + 4, array[i]);
+        ByteConverter.int8(bytes, idx + 4, iter.nextLong());
         idx += 12;
       }
     }
@@ -471,33 +599,51 @@ final class ArrayEncoding {
     }
   };
 
-  private static final AbstractArrayEncoder<int @NonNull []> INT_ARRAY = new FixedSizePrimitiveArrayEncoder<int @NonNull []>(4, Oid.INT4,
-      Oid.INT4_ARRAY) {
+  private static final class PrimitiveIntIterator implements PrimitiveIterator.OfInt {
+    final int[] ints;
+    int idx = 0;
 
-    /**
-     * {@inheritDoc}
-     */
+    public PrimitiveIntIterator (int[] ints) {
+      this.ints = ints;
+    }
+
     @Override
-    public void appendArray(StringBuilder sb, char delim, int[] array) {
+    public boolean hasNext() {
+      return idx < ints.length;
+    }
+
+    @Override
+    public int nextInt() {
+      if (!hasNext()) {
+        throw new NoSuchElementException();
+      }
+      return ints[idx++];
+    }
+  }
+
+  private static final FixedSizePrimitiveIteratorArrayEncoder<int @NonNull [], PrimitiveIterator.OfInt> INT_ARRAY =
+      new FixedSizePrimitiveIteratorArrayEncoder<int @NonNull [], PrimitiveIterator.OfInt>(4, Oid.INT4, Oid.INT4_ARRAY, PrimitiveIntIterator::new) {
+
+    @Override
+    void appendArray(StringBuilder sb, char delim, OfInt iterator) {
       sb.append('{');
-      for (int i = 0; i < array.length; ++i) {
-        if (i > 0) {
+      boolean first = true;
+      while (iterator.hasNext()) {
+        if (!first) {
           sb.append(delim);
         }
-        sb.append(array[i]);
+        sb.append(iterator.nextInt());
+        first = false;
       }
       sb.append('}');
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
-    protected void write(int[] array, byte[] bytes, int offset) {
+    void write(OfInt iter, byte[] bytes, int offset) {
       int idx = offset;
-      for (int i = 0; i < array.length; ++i) {
+      while (iter.hasNext()) {
         bytes[idx + 3] = 4;
-        ByteConverter.int4(bytes, idx + 4, array[i]);
+        ByteConverter.int4(bytes, idx + 4, iter.nextInt());
         idx += 8;
       }
     }
@@ -556,36 +702,54 @@ final class ArrayEncoding {
     }
   };
 
-  private static final AbstractArrayEncoder<double @NonNull []> DOUBLE_ARRAY = new FixedSizePrimitiveArrayEncoder<double @NonNull []>(8,
-      Oid.FLOAT8, Oid.FLOAT8_ARRAY) {
+  private static final class PrimitiveDoubleIterator implements PrimitiveIterator.OfDouble {
+    final double[] doubles;
+    int idx = 0;
 
-    /**
-     * {@inheritDoc}
-     */
+    public PrimitiveDoubleIterator (double[] doubles) {
+      this.doubles = doubles;
+    }
+
     @Override
-    public void appendArray(StringBuilder sb, char delim, double[] array) {
+    public boolean hasNext() {
+      return idx < doubles.length;
+    }
+
+    @Override
+    public double nextDouble() {
+      if (!hasNext()) {
+        throw new NoSuchElementException();
+      }
+      return doubles[idx++];
+    }
+  }
+
+  private static final FixedSizePrimitiveIteratorArrayEncoder<double @NonNull [], PrimitiveIterator.OfDouble> DOUBLE_ARRAY =
+      new FixedSizePrimitiveIteratorArrayEncoder<double @NonNull [], PrimitiveIterator.OfDouble>(8, Oid.FLOAT8, Oid.FLOAT8_ARRAY, PrimitiveDoubleIterator::new) {
+
+    @Override
+    void appendArray(StringBuilder sb, char delim, OfDouble iterator) {
       sb.append('{');
-      for (int i = 0; i < array.length; ++i) {
-        if (i > 0) {
+      boolean first = true;
+      while (iterator.hasNext()) {
+        if (!first) {
           sb.append(delim);
         }
         // use quotes to account for any issues with scientific notation
         sb.append('"');
-        sb.append(array[i]);
+        sb.append(iterator.nextDouble());
         sb.append('"');
+        first = false;
       }
       sb.append('}');
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
-    protected void write(double[] array, byte[] bytes, int offset) {
+    void write(OfDouble iter, byte[] bytes, int offset) {
       int idx = offset;
-      for (int i = 0; i < array.length; ++i) {
+      while (iter.hasNext()) {
         bytes[idx + 3] = 8;
-        ByteConverter.float8(bytes, idx + 4, array[i]);
+        ByteConverter.float8(bytes, idx + 4, iter.nextDouble());
         idx += 12;
       }
     }
@@ -1162,6 +1326,18 @@ final class ArrayEncoding {
     }
 
     throw new PSQLException(GT.tr("Invalid elements {0}", array), PSQLState.INVALID_PARAMETER_TYPE);
+  }
+
+  public static PrimitiveIteratorArrayEncoder<int[], PrimitiveIterator.OfInt> getPrimitiveIntArrayEncoder() {
+    return INT_ARRAY;
+  }
+
+  public static PrimitiveIteratorArrayEncoder<long[], PrimitiveIterator.OfLong> getPrimitiveLongArrayEncoder() {
+    return LONG_ARRAY;
+  }
+
+  public static PrimitiveIteratorArrayEncoder<double[], PrimitiveIterator.OfDouble> getPrimitiveDoubleArrayEncoder() {
+    return DOUBLE_ARRAY;
   }
 
   /**

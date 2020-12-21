@@ -43,6 +43,9 @@ import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Struct;
 import java.util.Map;
+import java.util.PrimitiveIterator.OfDouble;
+import java.util.PrimitiveIterator.OfInt;
+import java.util.PrimitiveIterator.OfLong;
 import java.util.Properties;
 import java.util.TimerTask;
 import java.util.concurrent.Executor;
@@ -50,13 +53,13 @@ import java.util.logging.Logger;
 
 public abstract class AbstractArraysTest<A> {
 
-  private static final BaseConnection ENCODING_CONNECTION = new EncodingConnection(Encoding.getJVMEncoding("utf-8"));
+  static final BaseConnection ENCODING_CONNECTION = new EncodingConnection(Encoding.getJVMEncoding("utf-8"));
 
-  private final A[][] testData;
+  final A[][] testData;
 
-  private final boolean binarySupported;
+  final boolean binarySupported;
 
-  private final int arrayTypeOid;
+  final int arrayTypeOid;
 
   /**
    *
@@ -212,7 +215,7 @@ public abstract class AbstractArraysTest<A> {
     }
   }
 
-  private static final class EncodingConnection implements BaseConnection {
+  static final class EncodingConnection implements BaseConnection {
     private final Encoding encoding;
     private final TypeInfo typeInfo = new TypeInfoCache(this, -1);
 
@@ -782,6 +785,30 @@ public abstract class AbstractArraysTest<A> {
      * {@inheritDoc}
      */
     public java.sql.Array createArrayOf(String typeName, Object elements) throws SQLException {
+      throw new UnsupportedOperationException();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public java.sql.Array createArrayOf(String typeName, int size, OfInt intIter) throws SQLException {
+      throw new UnsupportedOperationException();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public java.sql.Array createArrayOf(String typeName, int size, OfLong longIter) throws SQLException {
+      throw new UnsupportedOperationException();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public java.sql.Array createArrayOf(String typeName, int size, OfDouble doubleIter) throws SQLException {
       throw new UnsupportedOperationException();
     }
 
