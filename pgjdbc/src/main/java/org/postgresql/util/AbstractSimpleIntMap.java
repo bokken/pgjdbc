@@ -42,7 +42,7 @@ abstract class AbstractSimpleIntMap<E extends AbstractSimpleIntMap.BaseEntry<E>>
   /**
    * Hash map entries.
    */
-  E @Nullable [] nodes;
+  @Nullable E[] nodes;
 
   /**
    * Denormalized count of entries.
