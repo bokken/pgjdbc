@@ -5,6 +5,8 @@
 
 package org.postgresql.util;
 
+import org.checkerframework.checker.nullness.qual.Nullable;
+
 import java.util.Arrays;
 import java.util.NoSuchElementException;
 import java.util.PrimitiveIterator;
@@ -26,7 +28,7 @@ abstract class AbstractSimpleIntMap<E extends AbstractSimpleIntMap.BaseEntry<E>>
    */
   abstract static class BaseEntry<E extends AbstractSimpleIntMap.BaseEntry<E>> {
     final int key;
-    E next;
+    @Nullable E next = null;
     protected BaseEntry(int key) {
       this.key = key;
     }
@@ -40,7 +42,7 @@ abstract class AbstractSimpleIntMap<E extends AbstractSimpleIntMap.BaseEntry<E>>
   /**
    * Hash map entries.
    */
-  E[] nodes;
+  E @Nullable [] nodes;
 
   /**
    * Denormalized count of entries.
@@ -101,7 +103,7 @@ abstract class AbstractSimpleIntMap<E extends AbstractSimpleIntMap.BaseEntry<E>>
    * @param supplier Used to create entry if not currently present for <i>key</i>.
    * @return Existing entry for <i>key</i> (un-modified), or {@code} null if no entry present.
    */
-  final E manageEntry(int key, Supplier<E> supplier) {
+  final @Nullable E manageEntry(int key, Supplier<E> supplier) {
     return manageEntry(key, supplier, true);
   }
 
@@ -114,7 +116,7 @@ abstract class AbstractSimpleIntMap<E extends AbstractSimpleIntMap.BaseEntry<E>>
     return (key & 0x7FFFFFFF) % nodes.length;
   }
 
-  private final E manageEntry(int key, Supplier<E> supplier, boolean resize) {
+  private final @Nullable E manageEntry(int key, Supplier<E> supplier, boolean resize) {
     int idx = index(key);
     E node = nodes[idx];
     if (node == null) {
@@ -164,7 +166,7 @@ abstract class AbstractSimpleIntMap<E extends AbstractSimpleIntMap.BaseEntry<E>>
    * @param key The key to remove.
    * @return The entry removed for <i>key</i> or {@code null} if no entry exists.
    */
-  final E removeEntry(int key) {
+  final @Nullable E removeEntry(int key) {
     int idx = index(key);
     E node = nodes[idx];
     if (node == null) {
@@ -194,7 +196,7 @@ abstract class AbstractSimpleIntMap<E extends AbstractSimpleIntMap.BaseEntry<E>>
    * @param key The key to get Entry for.
    * @return existing Entry for <i>key</i> or {@code null} if no entry present.
    */
-  final E getEntry(int key) {
+  final @Nullable E getEntry(int key) {
     E entry = nodes[index(key)];
     while(entry != null) {
       if (key == entry.key) {

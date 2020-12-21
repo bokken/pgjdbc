@@ -5,6 +5,8 @@
 
 package org.postgresql.util;
 
+import org.checkerframework.checker.nullness.qual.Nullable;
+
 /**
  * A simplified {@code HashMap}-like collection where the key and value are both {@code int}s.
  *
@@ -52,7 +54,7 @@ public final class SimpleIntIntMap extends AbstractSimpleIntMap<SimpleIntIntMap.
    * @return The boxed {@link Integer} value of existing value or {@code null} if no value previously present.
    * @see java.util.Map#put(Object, Object)
    */
-  public Integer put(int key, int value) {
+  public @Nullable Integer put(int key, int value) {
     final EntryImpl existing = manageEntry(key, () ->  new EntryImpl(key, value));
     if (existing != null) {
         int existingValue = existing.value;
@@ -71,7 +73,7 @@ public final class SimpleIntIntMap extends AbstractSimpleIntMap<SimpleIntIntMap.
    *         was no mapping for <i>key</i>.
    * @see java.util.Map#putIfAbsent(Object, Object)
    */
-  public Integer putIfAbsent(int key, int value) {
+  public @Nullable Integer putIfAbsent(int key, int value) {
     final EntryImpl existing = manageEntry(key, () ->  new EntryImpl(key, value));
     return existing == null ? null : existing.value;
   }
@@ -96,7 +98,7 @@ public final class SimpleIntIntMap extends AbstractSimpleIntMap<SimpleIntIntMap.
    * @return the previous value for <i>key</i> or {@code null} if no entry existed.
    * @see java.util.Map#remove(Object)
    */
-  public Integer remove(int key) {
+  public @Nullable Integer remove(int key) {
     final EntryImpl existing = removeEntry(key);
     return existing == null ? null : existing.value;
   }

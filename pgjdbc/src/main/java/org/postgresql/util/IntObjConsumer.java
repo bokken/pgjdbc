@@ -5,6 +5,8 @@
 
 package org.postgresql.util;
 
+import org.checkerframework.checker.nullness.qual.Nullable;
+
 /**
  * Represents an operation which takes two {@code int} operations and returns no result.
  *
@@ -20,5 +22,5 @@ public interface IntObjConsumer<U> {
    * @param t the first input argument
    * @param u the second input argument
    */
-  public void accept(int t, U u);
+  public void accept(int t, @Nullable U u);
 }

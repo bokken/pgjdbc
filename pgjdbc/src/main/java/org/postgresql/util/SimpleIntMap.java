@@ -5,6 +5,8 @@
 
 package org.postgresql.util;
 
+import org.checkerframework.checker.nullness.qual.Nullable;
+
 /**
  * A simplified {@code HashMap}-like collection where the keys are {@code int}s.
  *
@@ -24,8 +26,8 @@ package org.postgresql.util;
 public final class SimpleIntMap<V> extends AbstractSimpleIntMap<SimpleIntMap.EntryImpl<V>> {
 
   static final class EntryImpl<V> extends AbstractSimpleIntMap.BaseEntry<EntryImpl<V>> {
-    V value;
-    protected EntryImpl(int key, V value) {
+    @Nullable V value;
+    protected EntryImpl(int key, @Nullable V value) {
       super(key);
       this.value = value;
     }
@@ -53,7 +55,7 @@ public final class SimpleIntMap<V> extends AbstractSimpleIntMap<SimpleIntMap.Ent
    * @return The existing value or {@code null} if no value previously present.
    * @see java.util.Map#put(Object, Object)
    */
-  public V put(int key, V value) {
+  public @Nullable V put(int key, @Nullable V value) {
     final EntryImpl<V> existing = manageEntry(key, () ->  new EntryImpl<V>(key, value));
     if (existing != null) {
         V existingValue = existing.value;
@@ -71,7 +73,7 @@ public final class SimpleIntMap<V> extends AbstractSimpleIntMap<SimpleIntMap.Ent
    * @return the previous value associated with <i>key</i>, or {@code null} if there was no mapping for <i>key</i>.
    * @see java.util.Map#putIfAbsent(Object, Object)
    */
-  public V putIfAbsent(int key, V value) {
+  public @Nullable V putIfAbsent(int key, @Nullable V value) {
     final EntryImpl<V> existing = manageEntry(key, () ->  new EntryImpl<V>(key, value));
     return existing == null ? null : existing.value;
   }
@@ -83,7 +85,7 @@ public final class SimpleIntMap<V> extends AbstractSimpleIntMap<SimpleIntMap.Ent
    * @return the value mapped to <i>key</i> or {@code null} if no mapping present.
    * @see java.util.Map#get(Object)
    */
-  public V get(int key) {
+  public @Nullable V get(int key) {
     return getOrDefault(key, null);
   }
 
@@ -95,7 +97,7 @@ public final class SimpleIntMap<V> extends AbstractSimpleIntMap<SimpleIntMap.Ent
    * @return the value mapped to <i>key</i> or <i>def</i>.
    * @see java.util.Map#getOrDefault(Object, Object)
    */
-  public V getOrDefault(int key, V def) {
+  public @Nullable V getOrDefault(int key, @Nullable V def) {
     final EntryImpl<V> existing = getEntry(key);
     return existing != null ? existing.value : def;
   }
@@ -107,7 +109,7 @@ public final class SimpleIntMap<V> extends AbstractSimpleIntMap<SimpleIntMap.Ent
    * @return the previous value for <i>key</i> or {@code null} if no entry existed.
    * @see java.util.Map#remove(Object)
    */
-  public V remove(int key) {
+  public @Nullable V remove(int key) {
     final EntryImpl<V> existing = removeEntry(key);
     return existing == null ? null : existing.value;
   }
