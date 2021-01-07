@@ -36,8 +36,8 @@ public class LruCache<Key extends @NonNull Object, Value extends @NonNull CanEst
     Value create(Key key) throws SQLException;
   }
 
-  private final @Nullable EvictAction<Value> onEvict;
-  private final @Nullable CreateAction<Key, Value> createAction;
+  private final EvictAction<Value> onEvict;
+  private final CreateAction<Key, Value> createAction;
   private final int maxSizeEntries;
   private final long maxSizeBytes;
   private long currentSize;
@@ -51,24 +51,19 @@ public class LruCache<Key extends @NonNull Object, Value extends @NonNull CanEst
     @Override
     protected boolean removeEldestEntry(Map.Entry<Key, Value> eldest) {
       // Avoid creating iterators if size constraints not violated
-      if (size() <= maxSizeEntries && currentSize <= maxSizeBytes) {
-        return false;
-      }
-
-      Iterator<Map.Entry<Key, Value>> it = entrySet().iterator();
-      while (it.hasNext()) {
-        if (size() <= maxSizeEntries && currentSize <= maxSizeBytes) {
-          return false;
-        }
-
-        Map.Entry<Key, Value> entry = it.next();
-        evictValue(entry.getValue());
-        long valueSize = entry.getValue().getSize();
-        if (valueSize > 0) {
-          // just in case
-          currentSize -= valueSize;
-        }
-        it.remove();
+      if (size() <= maxSizeEntries || currentSize <= maxSizeBytes) {
+        Iterator<Value> it = values().iterator();
+        do {
+          Value value = it.next();
+          evictValue(value);
+          long valueSize = value.getSize();
+          if (valueSize > 0) {
+            // just in case
+            currentSize -= valueSize;
+          }
+          it.remove();
+        //number of entries can never be over by more than one, so only need to check size here
+        } while (currentSize > maxSizeBytes);
       }
       return false;
     }
@@ -76,9 +71,7 @@ public class LruCache<Key extends @NonNull Object, Value extends @NonNull CanEst
 
   private void evictValue(Value value) {
     try {
-      if (onEvict != null) {
-        onEvict.evict(value);
-      }
+      onEvict.evict(value);
     } catch (SQLException e) {
       /* ignore */
     }
@@ -88,13 +81,25 @@ public class LruCache<Key extends @NonNull Object, Value extends @NonNull CanEst
     this(maxSizeEntries, maxSizeBytes, accessOrder, null, null);
   }
 
+  /**
+   * Creates an instance with defined max entries, max memory used, and optional actions to use for creation/eviction.
+   *
+   * @param maxSizeEntries The max number of entries to keep.
+   * @param maxSizeBytes The max amount of memory consumed by values in cache.
+   * @param accessOrder Determines orders entries are purged. A value of {@code true} means access order (usage).
+   *      A value of {@code false} means insertion order.
+   * @param createAction Optional action to use for creating entries on demand.
+   * @param onEvict Optional action to call when entries are evicted.
+   */
   public LruCache(int maxSizeEntries, long maxSizeBytes, boolean accessOrder,
       @Nullable CreateAction<Key, Value> createAction,
       @Nullable EvictAction<Value> onEvict) {
     this.maxSizeEntries = maxSizeEntries;
     this.maxSizeBytes = maxSizeBytes;
-    this.createAction = createAction;
-    this.onEvict = onEvict;
+    this.createAction = createAction != null ? createAction : k ->  {
+      throw new UnsupportedOperationException("createAction == null, so can't create object");
+    };
+    this.onEvict = onEvict != null ? onEvict : v -> {};
     this.cache = new LimitedMap(16, 0.75f, accessOrder);
   }
 
@@ -118,9 +123,6 @@ public class LruCache<Key extends @NonNull Object, Value extends @NonNull CanEst
   public synchronized Value borrow(Key key) throws SQLException {
     Value value = cache.remove(key);
     if (value == null) {
-      if (createAction == null) {
-        throw new UnsupportedOperationException("createAction == null, so can't create object");
-      }
       return createAction.create(key);
     }
     currentSize -= value.getSize();
@@ -142,7 +144,7 @@ public class LruCache<Key extends @NonNull Object, Value extends @NonNull CanEst
       return;
     }
     currentSize += valueSize;
-    @Nullable Value prev = cache.put(key, value);
+    Value prev = cache.put(key, value);
     if (prev == null) {
       return;
     }
@@ -159,8 +161,6 @@ public class LruCache<Key extends @NonNull Object, Value extends @NonNull CanEst
    * @param m The map containing entries to put into the cache
    */
   public synchronized void putAll(Map<Key, Value> m) {
-    for (Map.Entry<Key, Value> entry : m.entrySet()) {
-      this.put(entry.getKey(), entry.getValue());
-    }
+    m.forEach(this::put);
   }
 }
