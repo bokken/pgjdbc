@@ -40,8 +40,8 @@ public class LruCache<Key extends @NonNull Object, Value extends @NonNull CanEst
   private final CreateAction<Key, Value> createAction;
   private final int maxSizeEntries;
   private final long maxSizeBytes;
-  private long currentSize;
   private final Map<Key, Value> cache;
+  private long currentSize;
 
   private class LimitedMap extends LinkedHashMap<Key, Value> {
     LimitedMap(int initialCapacity, float loadFactor, boolean accessOrder) {
@@ -52,6 +52,9 @@ public class LruCache<Key extends @NonNull Object, Value extends @NonNull CanEst
     protected boolean removeEldestEntry(Map.Entry<Key, Value> eldest) {
       // Avoid creating iterators if size constraints not violated
       if (size() <= maxSizeEntries || currentSize <= maxSizeBytes) {
+
+        //the iterator is in ascending order. loop over, removing one at a time
+        //until we are under the thresholds
         Iterator<Value> it = values().iterator();
         do {
           Value value = it.next();
@@ -65,6 +68,7 @@ public class LruCache<Key extends @NonNull Object, Value extends @NonNull CanEst
         //number of entries can never be over by more than one, so only need to check size here
         } while (currentSize > maxSizeBytes);
       }
+      //return false because we already did the removing
       return false;
     }
   }
