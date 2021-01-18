@@ -53,7 +53,6 @@ final class CharOptimizedUTF8Encoder extends Encoding {
   }
 
   /**
-   *
    * Decodes binary content to {@code String} by first converting to {@code char[]}.
    */
   @Override
