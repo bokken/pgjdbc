@@ -11,6 +11,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -76,7 +77,7 @@ public class UTF8EncodingTest {
     }
 
     final List<Object[]> data = new ArrayList<Object[]>(strings.size() * 2);
-    for (final Encoding encoding : Arrays.asList(new ByteOptimizedUTF8Encoder(), new CharOptimizedUTF8Encoder())) {
+    for (final Encoding encoding : Arrays.asList(new Encoding(StandardCharsets.UTF_8, true), new CharOptimizedUTF8Encoder())) {
       for (String string : strings) {
         data.add(new Object[] { encoding, string });
       }

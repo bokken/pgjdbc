@@ -17,6 +17,7 @@ import java.io.Writer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -78,30 +79,17 @@ public class Encoding {
     encodings.put("LATIN10", new String[0]);
   }
 
-  private interface UTFEncodingProvider {
-    Encoding getEncoding();
-  }
-
-  private static final UTFEncodingProvider UTF_ENCODING_PROVIDER;
+  private static final Supplier<Encoding> UTF_ENCODING_PROVIDER;
 
   static {
     //for java 1.8 and older, use implementation optimized for char[]
     final JavaVersion runtimeVersion = JavaVersion.getRuntimeVersion();
     if (JavaVersion.v1_8.compareTo(runtimeVersion) >= 0) {
-      UTF_ENCODING_PROVIDER = new UTFEncodingProvider() {
-        @Override
-        public Encoding getEncoding() {
-          return new CharOptimizedUTF8Encoder();
-        }
-      };
+      UTF_ENCODING_PROVIDER = CharOptimizedUTF8Encoder::new;
     } else {
       //for newer versions, use default java behavior
-      UTF_ENCODING_PROVIDER = new UTFEncodingProvider() {
-        @Override
-        public Encoding getEncoding() {
-          return new ByteOptimizedUTF8Encoder();
-        }
-      };
+      final Encoding utf8Encoding = new Encoding(StandardCharsets.UTF_8, true);
+      UTF_ENCODING_PROVIDER = () -> utf8Encoding;
     }
   }
 
@@ -163,7 +151,7 @@ public class Encoding {
    */
   public static Encoding getJVMEncoding(String jvmEncoding) {
     if ("UTF-8".equals(jvmEncoding)) {
-      return UTF_ENCODING_PROVIDER.getEncoding();
+      return UTF_ENCODING_PROVIDER.get();
     }
     if (Charset.isSupported(jvmEncoding)) {
       return new Encoding(Charset.forName(jvmEncoding));
@@ -180,7 +168,7 @@ public class Encoding {
    */
   public static Encoding getDatabaseEncoding(String databaseEncoding) {
     if ("UTF8".equals(databaseEncoding)) {
-      return UTF_ENCODING_PROVIDER.getEncoding();
+      return UTF_ENCODING_PROVIDER.get();
     }
     // If the backend encoding is known and there is a suitable
     // encoding in the JVM we use that. Otherwise we fall back
