@@ -283,8 +283,6 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
           continue;
         }
 
-        runInitialQueries(queryExecutor, info);
-
         // And we're done.
         return queryExecutor;
       } catch (ConnectException cex) {
@@ -330,7 +328,7 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
   }
 
   private List<String[]> getParametersForStartup(String user, String database, Properties info) {
-    List<String[]> paramList = new ArrayList<String[]>();
+    List<String[]> paramList = new ArrayList<String[]>(10);
     paramList.add(new String[]{"user", user});
     paramList.add(new String[]{"database", database});
     paramList.add(new String[]{"client_encoding", "UTF8"});
@@ -339,15 +337,15 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
 
     Version assumeVersion = ServerVersion.from(PGProperty.ASSUME_MIN_SERVER_VERSION.get(info));
 
-    if (assumeVersion.getVersionNum() >= ServerVersion.v9_0.getVersionNum()) {
-      // User is explicitly telling us this is a 9.0+ server so set properties here:
+    if (assumeVersion.getVersionNum() == 0 || assumeVersion.getVersionNum() >= ServerVersion.v9_0.getVersionNum()) {
+      // User has either explicitly told us 9.0+ or not told us anything, so we assume 9.0+
       paramList.add(new String[]{"extra_float_digits", "3"});
       String appName = PGProperty.APPLICATION_NAME.get(info);
       if (appName != null) {
         paramList.add(new String[]{"application_name", appName});
       }
     } else {
-      // User has not explicitly told us that this is a 9.0+ server so stick to old default:
+      // User has explicitly told us that this is not a 9.0+ server so use old default:
       paramList.add(new String[]{"extra_float_digits", "2"});
     }
 
@@ -815,31 +813,6 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
         }
 
       }
-    }
-
-  }
-
-  private void runInitialQueries(QueryExecutor queryExecutor, Properties info)
-      throws SQLException {
-    String assumeMinServerVersion = PGProperty.ASSUME_MIN_SERVER_VERSION.get(info);
-    if (Utils.parseServerVersionStr(assumeMinServerVersion) >= ServerVersion.v9_0.getVersionNum()) {
-      // We already sent the parameter values in the StartupMessage so skip this
-      return;
-    }
-
-    final int dbVersion = queryExecutor.getServerVersionNum();
-
-    if (dbVersion >= ServerVersion.v9_0.getVersionNum()) {
-      SetupQueryRunner.run(queryExecutor, "SET extra_float_digits = 3", false);
-    }
-
-    String appName = PGProperty.APPLICATION_NAME.get(info);
-    if (appName != null && dbVersion >= ServerVersion.v9_0.getVersionNum()) {
-      StringBuilder sql = new StringBuilder();
-      sql.append("SET application_name = '");
-      Utils.escapeLiteral(sql, appName, queryExecutor.getStandardConformingStrings());
-      sql.append("'");
-      SetupQueryRunner.run(queryExecutor, sql.toString(), false);
     }
 
   }

@@ -9,6 +9,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 - Now the driver use SASLprep normalization for SCRAM authentication fixing some issues with spaces in passwords.
 
 ### Changed
+- Assume server version is 9.0 unless configured otherwise. To use with PostgreSQL 8.x now requires setting 
+the *assumeMinServerVersion* property.
 
 ### Added
 - Verify code via forbidden-apis (jdk-internal and jdk-non-portable signatures) [PR #2012](https://github.com/pgjdbc/pgjdbc/pull/2012)

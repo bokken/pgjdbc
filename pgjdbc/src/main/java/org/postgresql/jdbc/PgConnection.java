@@ -222,9 +222,18 @@ public class PgConnection implements BaseConnection {
     // Now make the initial connection and set up local state
     this.queryExecutor = ConnectionFactory.openConnection(hostSpecs, user, database, info);
 
+    final String serverVersionString = queryExecutor.getServerVersion();
+    final Version serverVersion = ServerVersion.from(serverVersionString);
+
     // WARNING for unsupported servers (8.1 and lower are not supported)
-    if (LOGGER.isLoggable(Level.WARNING) && !haveMinimumServerVersion(ServerVersion.v8_2)) {
-      LOGGER.log(Level.WARNING, "Unsupported Server Version: {0}", queryExecutor.getServerVersion());
+    if (LOGGER.isLoggable(Level.WARNING)) {
+      if (serverVersion.getVersionNum() < ServerVersion.v9_0.getVersionNum()) {
+        if (serverVersion.getVersionNum() < ServerVersion.v8_2.getVersionNum()) {
+          LOGGER.log(Level.WARNING, "Unsupported Server Version: {0}", serverVersionString);
+        } else {
+          LOGGER.log(Level.WARNING, "Server Version {0} will not be supported in a future release", serverVersionString);
+        }
+      }
     }
 
     setSessionReadOnly = createQuery("SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY", false, true);
@@ -299,13 +308,8 @@ public class PgConnection implements BaseConnection {
     }
     this.disableColumnSanitiser = PGProperty.DISABLE_COLUMN_SANITISER.getBoolean(info);
 
-    if (haveMinimumServerVersion(ServerVersion.v8_3)) {
-      typeCache.addCoreType("uuid", Oid.UUID, Types.OTHER, "java.util.UUID", Oid.UUID_ARRAY);
-      typeCache.addCoreType("xml", Oid.XML, Types.SQLXML, "java.sql.SQLXML", Oid.XML_ARRAY);
-    }
-
     this.clientInfo = new Properties();
-    if (haveMinimumServerVersion(ServerVersion.v9_0)) {
+    if (serverVersion.getVersionNum() >= ServerVersion.v9_0.getVersionNum()) {
       String appName = PGProperty.APPLICATION_NAME.get(info);
       if (appName == null) {
         appName = "";

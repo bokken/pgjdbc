@@ -102,7 +102,9 @@ public class TypeInfoCache implements TypeInfo {
           Oid.TIMESTAMPTZ_ARRAY},
       {"refcursor", Oid.REF_CURSOR, Types.REF_CURSOR, "java.sql.ResultSet", Oid.REF_CURSOR_ARRAY},
       {"json", Oid.JSON, Types.OTHER, "org.postgresql.util.PGobject", Oid.JSON_ARRAY},
-      {"point", Oid.POINT, Types.OTHER, "org.postgresql.geometric.PGpoint", Oid.POINT_ARRAY}
+      {"point", Oid.POINT, Types.OTHER, "org.postgresql.geometric.PGpoint", Oid.POINT_ARRAY},
+      {"uuid", Oid.UUID, Types.OTHER, "java.util.UUID", Oid.UUID_ARRAY},
+      {"xml", Oid.XML, Types.SQLXML, "java.sql.SQLXML", Oid.XML_ARRAY}
   };
 
   /**
