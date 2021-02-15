@@ -65,7 +65,6 @@ import java.sql.SQLXML;
 import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Struct;
-import java.sql.Types;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashMap;
